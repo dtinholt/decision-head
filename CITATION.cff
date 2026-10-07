@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+type: software
+title: "decisionhead: a self-hosted typed-question decision service"
+abstract: >-
+  A typed-question decision service that returns calibrated probabilities
+  from any OpenAI-compatible or ollama model that exposes token log-probabilities,
+  with an audit row for every decision.
+authors:
+  - family-names: Tinholt
+    given-names: Dinand
+version: 0.1.0
+date-released: 2026-09-23
+license: Apache-2.0
+repository-code: "https://github.com/dtinholt/decision-head"
+keywords:
+  - decision service
+  - calibration
+  - logprobs
+  - LLM
+  - audit

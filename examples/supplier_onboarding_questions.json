@@ -1,0 +1,28 @@
+{
+  "coi_current": {
+    "type": "noul",
+    "instructions": "The certificate of insurance on file is dated within the last 12 months and lists coverage limits meeting the standard supplier requirement."
+  },
+  "w9_on_file": {
+    "type": "noul",
+    "instructions": "A signed W-9 (or local equivalent tax form) is present in the file."
+  },
+  "next_step": {
+    "type": "choice",
+    "instructions": "Given everything in the state, what should happen to this supplier onboarding case next?",
+    "criteria": {
+      "APPROVE": "all required documents are present and current; onboard the supplier",
+      "REQUEST_DOCS": "one or more required documents are missing or expired; ask the supplier to submit them",
+      "ESCALATE": "something in the state looks contradictory or unusual enough to need a human reviewer"
+    }
+  },
+  "risk_level": {
+    "type": "score",
+    "instructions": "Rate the overall onboarding risk of this supplier given everything in the state.",
+    "levels": {
+      "low": "standard documentation, no flags",
+      "medium": "minor gaps or an upcoming expiry, but nothing disqualifying",
+      "high": "missing critical documents, mismatched entity names, or other red flags"
+    }
+  }
+}

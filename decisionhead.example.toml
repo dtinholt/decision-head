@@ -1,0 +1,92 @@
+# Example configuration for `decisionhead serve`.
+#
+# Precedence (highest wins): CLI flags > environment variables (DECISIONHEAD_*)
+# > this file > built-in defaults. Point the server at this file with
+# `--config decisionhead.toml` or the DECISIONHEAD_CONFIG environment
+# variable. Every key is documented in docs/configuration.md.
+#
+# Every key here maps 1:1 to a decisionhead.config.ServerConfig field.
+# An unrecognized key in a recognized section is a hard error (a typo here
+# should fail loudly, not silently do nothing); an unrecognized section is
+# ignored, for forward compatibility.
+#
+# Secrets never belong in this file. api_key_env and bearer_token_env below
+# are the NAMES of environment variables to read a secret from at startup,
+# never the secret itself.
+
+[server]
+backend = "ollama"
+base_url = "http://127.0.0.1:11434"
+model = "qwen3.8:27b"
+host = "127.0.0.1"
+port = 8787
+# allow_non_local_bind = false    # a non-loopback host also needs [auth] bearer_token_env (or insecure_no_auth)
+# allowed_hosts = ""               # extra Host-header names to answer to, comma-separated (loopback names and `host` always allowed)
+# calibration_path = "calibration.json"
+# audit_path = "audit.jsonl"
+max_workers = 4
+# api_key_env = "DECISIONHEAD_BACKEND_API_KEY"   # only used by --backend openai
+# backend_timeout_s = 60.0         # socket timeout per backend HTTP call; effective value is min(this, question_timeout_s)
+# dry = false
+# dry_seed = 0
+
+# mode = "fast"                    # "fast" (one logprob read/question), "deliberate" (k-sampled vote, see docs/deliberate.md), or "learned" (trained model, no LLM call -- see docs/training.md)
+# mode_override_allowed = true     # allow a request's own "mode" field to override the line above, per request
+# deliberate_k = 8                 # "deliberate" mode only: sampled answers per question
+# deliberate_temperature = 0.7     # "deliberate" mode only: sampling temperature
+# deliberate_max_tokens = 256      # "deliberate" mode only: max tokens per sampled answer
+# claim_guard_enabled = true       # "deliberate" mode only: guard a terminal "claim of done" answer (see docs/deliberate.md)
+# claim_guard_threshold = 0.75     # "deliberate" mode only: minimum vote share to accept a terminal claim
+
+# head_model_path = "model.json"           # "learned" mode only: written by `python -m decisionhead.train --out ...`
+# embedding_backend = "ollama"             # "learned" mode only, and only if the model was trained with embedding features on
+# embedding_base_url = "http://127.0.0.1:11434"
+# embedding_model = "qwen3-embedding:0.6b"
+# embedding_api_key_env = "DECISIONHEAD_EMBEDDING_API_KEY"  # only used by --embedding-backend openai
+
+[limits]
+max_request_bytes = 1048576        # 1 MiB
+request_timeout_s = 30.0
+question_timeout_s = 15.0
+max_questions_per_request = 50
+max_concurrent_requests = 16
+ready_cache_s = 5.0
+connection_read_timeout_s = 30.0   # per-connection socket read timeout (slowloris defense)
+max_json_nesting_depth = 32        # reject a body nested deeper than this before parsing it
+
+[auth]
+# bearer_token_env = "DECISIONHEAD_BEARER_TOKEN" # name of the env var holding this server's own token
+cors_enabled = false
+# insecure_no_auth = false         # allow a non-loopback bind with no bearer token (not recommended; logged as a WARNING)
+
+[logging]
+log_level = "INFO"
+
+[backend]
+# Serializes (or bounds) every backend HTTP call behind a semaphore of
+# this size. Finding: a real DeepSeek exl3 endpoint returns different
+# logprobs for otherwise-identical requests when it batches concurrent
+# requests together; at concurrency 1 they are identical. The effective
+# value is logged at startup.
+max_concurrency = 1
+# Allow a request's own "max_concurrency" field (fast mode only) to
+# override the line above for that one request. Off by default -- an
+# explicit opt-in is required to trade determinism for throughput.
+max_concurrency_override_allowed = false
+
+[cache]
+# In-process, optionally file-backed cache of full per-question answers
+# (fast mode only). Keyed on (model, backend route, canonical state
+# JSON, question id + text, mode, calibration version) -- see
+# decisionhead/cache.py and docs/design.md.
+cache_enabled = true
+cache_ttl_s = 86400.0       # 24h
+cache_max_entries = 10000   # in-memory LRU bound
+# cache_path = "cache.jsonl" # unset (default): in-process only, lost on restart
+
+[abstain]
+# Low-confidence band applied to every decisive (noul) answer's
+# probability. Disabled by default (both bounds unset). Example:
+# abstain_band_lo = 0.4
+# abstain_band_hi = 0.6
+# abstain_mode = "off"       # "off" (default) or "handoff"

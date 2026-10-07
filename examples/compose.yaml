@@ -1,0 +1,49 @@
+# Example: decisionhead in a container, pointed at a model server that is
+# already running on the HOST (an ollama or vLLM instance you manage
+# yourself, outside this compose file) -- the shape most pilots want,
+# since the model server usually predates the decisionhead deployment and
+# is often shared with other things on the box.
+#
+# Contrast with the top-level compose.yaml, which bundles decisionhead
+# with its OWN ollama container for a fully self-contained demo.
+#
+# Usage:
+#   1. Have ollama (or an OpenAI-compatible server) running on the host,
+#      reachable at http://127.0.0.1:11434, with the model already pulled
+#      (`ollama pull qwen3.8:27b`).
+#   2. From this directory, create a .env holding the bearer token
+#      (gitignored; first run only), then start:
+#        echo "DECISIONHEAD_BEARER_TOKEN=$(openssl rand -hex 32)" > .env
+#        docker compose -f compose.yaml up --build
+#   3. curl -X POST http://localhost:8787/v1/systemone \
+#        -H "Authorization: Bearer $(sed -n 's/^DECISIONHEAD_BEARER_TOKEN=//p' .env)" \
+#        -H 'Content-Type: application/json' \
+#        -d '{"state": "...", "model": "jev-latest", "questions": {...}}'
+#
+# `host.docker.internal` resolves to the host from inside the container on
+# Docker Desktop (macOS/Windows) and modern Docker Engine with the
+# extra_hosts entry below (needed on Linux, harmless elsewhere). If your
+# host's ollama binds only to 127.0.0.1, either rebind it to 0.0.0.0 or
+# use `network_mode: host` (Linux only) instead of the ports/extra_hosts
+# shown here.
+services:
+  decisionhead:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      DECISIONHEAD_BACKEND: ollama
+      DECISIONHEAD_BASE_URL: http://host.docker.internal:11434
+      DECISIONHEAD_MODEL: qwen3.8:27b
+      # 0.0.0.0 inside the container so the published port reaches it;
+      # a non-loopback bind requires the bearer token below.
+      DECISIONHEAD_HOST: 0.0.0.0
+      DECISIONHEAD_ALLOW_NON_LOCAL_BIND: "true"
+      DECISIONHEAD_BEARER_TOKEN_ENV: DECISIONHEAD_BEARER_TOKEN
+    # DECISIONHEAD_BEARER_TOKEN itself comes from .env, never this file.
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # needed on Linux; no-op elsewhere
+    ports:
+      - "127.0.0.1:8787:8787" # loopback only; widen deliberately, behind TLS
+    restart: unless-stopped

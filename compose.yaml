@@ -1,0 +1,47 @@
+# Example: decisionhead paired with its own ollama service.
+#
+#   echo "DECISIONHEAD_BEARER_TOKEN=$(openssl rand -hex 32)" > .env   # first run only; .env is gitignored
+#   docker compose up --build
+#   docker compose exec ollama ollama pull qwen3.8:27b   # first run only
+#   curl -X POST http://localhost:8787/v1/systemone -H 'Content-Type: application/json' \
+#       -d @examples/supplier_onboarding_questions.json   # (wrap it in a full request first)
+#
+# To point decisionhead at an ollama or vLLM server that already runs on
+# the host instead of the one defined here, use examples/compose.yaml
+# (README.md, "Deployment").
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    # No published port: decisionhead reaches ollama on the compose
+    # network as http://ollama:11434, and an unauthenticated ollama on
+    # every host interface is an open model server (2026-10-06 security
+    # review, finding 7). Use `docker compose exec ollama ...` to manage
+    # models; publish "127.0.0.1:11434:11434" only if you need host access.
+    restart: unless-stopped
+
+  decisionhead:
+    build: .
+    depends_on:
+      - ollama
+    environment:
+      DECISIONHEAD_BACKEND: ollama
+      DECISIONHEAD_BASE_URL: http://ollama:11434
+      DECISIONHEAD_MODEL: qwen3.8:27b
+      # 0.0.0.0 inside the container so the published port reaches it;
+      # a non-loopback bind requires the bearer token below.
+      DECISIONHEAD_HOST: 0.0.0.0
+      DECISIONHEAD_ALLOW_NON_LOCAL_BIND: "true"
+      DECISIONHEAD_BEARER_TOKEN_ENV: DECISIONHEAD_BEARER_TOKEN
+    # DECISIONHEAD_BEARER_TOKEN itself comes from .env, never this file.
+    env_file: .env
+    ports:
+      # Loopback only. Clients on the host use http://localhost:8787 with
+      # "Authorization: Bearer <token>". Widen this deliberately, behind
+      # TLS, if other machines need access.
+      - "127.0.0.1:8787:8787"
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
